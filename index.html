@@ -1,0 +1,23 @@
+<html>
+  <head>
+    <title>Tifflang Test</title>
+
+    <script lang="text/javascript">
+      async function instantiate(bytes, imports) {
+        let module = await WebAssembly.compile(bytes);
+        let instance = new WebAssembly.Instance(module, imports);
+        return instance;
+      }
+
+      async function main() {
+        let response = await fetch("output.wasm");
+        let bytes = await response.arrayBuffer();
+        let instance = await instantiate(bytes, []);
+        let result = instance.exports.main();
+        console.log(result);
+      }
+
+      main();
+    </script>
+  </head>
+</html>

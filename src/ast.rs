@@ -58,3 +58,9 @@ pub enum Statement {
         members: Vec<Span<Statement>>,
     },
 }
+
+#[derive(Debug)]
+pub struct Module {
+    pub name: String,
+    pub statements: Vec<Span<Statement>>,
+}

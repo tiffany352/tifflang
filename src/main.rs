@@ -1,15 +1,24 @@
+extern crate web_assembler as wasm;
 extern crate regex;
 
 mod span;
 mod lexer;
 mod ast;
 mod parser;
+mod compiler;
 
 use lexer::Token;
 use span::Span;
 use std::rc::Rc;
+use std::fs::File;
+use wasm::Dump;
+use std::io::Write;
 
 const TEST: &'static str = r#"
+fn foo(x, y) {
+    1 + 2
+}
+"#;/*
 class Foo {
     fn foo(x, y, z) {
         1 * 2 + 3
@@ -28,7 +37,7 @@ class Foo {
         "baz"
     }
 }
-"#;
+"#;*/
 
 fn main() {
     let lexer = lexer::Lexer::new();
@@ -38,6 +47,12 @@ fn main() {
         println!("{}", span);
     }*/
     let iter: Box<Iterator<Item=Span<Token>>> = Box::new(tokens.into_iter());
-    let expr = parser::parse_statement(&mut iter.peekable());
-    println!("{:#?}", expr);
+    let expr = parser::parse_module("stdin", &mut iter.peekable());
+    let module = compiler::compile_module(&expr);
+    println!("{:#?}", module);
+
+    let mut file = File::create("output.wasm").unwrap();
+    let mut code = vec![];
+    module.dump(&mut code);
+    file.write(&mut code).unwrap();
 }
