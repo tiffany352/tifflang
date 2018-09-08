@@ -5,9 +5,77 @@ use span::Span;
 
 pub type TokenIterator = Peekable<Box<Iterator<Item=Span<Token>>>>;
 
+fn parse_if(iter: &mut TokenIterator) -> Span<Expr> {
+    let condition = parse_expr(iter);
+
+    match iter.next().unwrap().split() {
+        (_span, Token::CurlyLeft) => (),
+        (span, token) => return span.replace(Expr::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "{",
+        }))
+    };
+
+    let mut branch_then = vec![];
+    let branch_then_end;
+    loop {
+        branch_then.push(parse_expr(iter));
+
+        match iter.peek().map(ToOwned::to_owned).unwrap().split() {
+            (span, Token::CurlyRight) => {
+                branch_then_end = span;
+                iter.next();
+                break;
+            },
+            _ => continue,
+        }
+    }
+
+    match iter.peek().map(ToOwned::to_owned).unwrap().split() {
+        (_span, Token::Else) => {
+            iter.next();
+        },
+        _ => return Span::bridge(condition.peek(), branch_then_end, Expr::If {
+            condition: Box::new(condition),
+            branch_then: branch_then,
+            branch_else: vec![],
+        }),
+    }
+
+    match iter.next().unwrap().split() {
+        (_span, Token::CurlyLeft) => (),
+        (span, token) => return span.replace(Expr::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "{",
+        }))
+    };
+
+    let mut branch_else = vec![];
+    let branch_else_end;
+    loop {
+        branch_else.push(parse_expr(iter));
+
+        match iter.peek().map(ToOwned::to_owned).unwrap().split() {
+            (span, Token::CurlyRight) => {
+                branch_else_end = span;
+                iter.next();
+                break;
+            },
+            _ => continue,
+        }
+    }
+
+    Span::bridge(condition.peek(), branch_else_end, Expr::If {
+        condition: Box::new(condition),
+        branch_then: branch_then,
+        branch_else: branch_else,
+    })
+}
+
 fn parse_const(iter: &mut TokenIterator) -> Span<Expr> {
     let (span, token) = iter.next().unwrap().split();
     match token {
+        Token::If => parse_if(iter),
         Token::Ident(ident) => span.replace(Expr::Variable(ident)),
         Token::Integer(int) => span.replace(Expr::ConstInteger(int)),
         Token::Number(num) => span.replace(Expr::ConstNumber(num)),
@@ -193,9 +261,56 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Statement> {
     })
 }
 
+fn parse_class(iter: &mut TokenIterator) -> Span<Statement> {
+    let start_span = match iter.next().unwrap().split() {
+        (span, Token::Class) => span,
+        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "class",
+        }))
+    };
+
+    let name = match iter.next().unwrap().split() {
+        (span, Token::Ident(ident)) => span.replace(ident),
+        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "ident",
+        })),
+    };
+
+    match iter.next().unwrap().split() {
+        (_span, Token::CurlyLeft) => (),
+        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "{",
+        }))
+    };
+
+    let mut members = vec![];
+    let end_span;
+    loop {
+        members.push(parse_statement(iter));
+
+        match iter.peek().map(ToOwned::to_owned).unwrap().split() {
+            (span, Token::CurlyRight) => {
+                iter.next();
+                end_span = span;
+                break;
+            },
+            _ => continue,
+        };
+    }
+
+    Span::bridge(start_span, end_span, Statement::Class {
+        name: name,
+        members: members,
+    })
+}
+
 pub fn parse_statement(iter: &mut TokenIterator) -> Span<Statement> {
     match iter.peek().map(ToOwned::to_owned).unwrap().split() {
         (_span, Token::Fn) => parse_func(iter),
+        (_span, Token::Class) => parse_class(iter),
         (span, token) => span.replace(Statement::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "statement",

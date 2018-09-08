@@ -12,6 +12,8 @@ pub enum Token {
     Class,
     Struct,
     Fn,
+    If,
+    Else,
     ParenLeft,
     ParenRight,
     CurlyLeft,
@@ -113,6 +115,8 @@ const REGEXES: &[Rule] = &[
                 "class" => Token::Class,
                 "struct" => Token::Struct,
                 "fn" => Token::Fn,
+                "if" => Token::If,
+                "else" => Token::Else,
                 ident => Token::Ident(ident.to_owned()),
             }
         }

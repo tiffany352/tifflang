@@ -19,15 +19,6 @@ impl<T> Span<T> {
         }
     }
 
-    pub fn map<U>(&self, func: fn(value: &T) -> U) -> Span<U> {
-        Span {
-            value: func(&self.value),
-            first: self.first,
-            last: self.last,
-            buffer: self.buffer.clone(),
-        }
-    }
-
     pub fn replace<U>(&self, value: U) -> Span<U> {
         Span {
             value: value,
@@ -35,6 +26,10 @@ impl<T> Span<T> {
             last: self.last,
             buffer: self.buffer.clone(),
         }
+    }
+
+    pub fn peek(&self) -> Span<()> {
+        self.replace(())
     }
 
     pub fn split(self) -> (Span<()>, T) {

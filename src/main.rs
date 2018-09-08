@@ -10,10 +10,23 @@ use span::Span;
 use std::rc::Rc;
 
 const TEST: &'static str = r#"
-fn foo(x, y, z) {
-    1 * 2 + 3
-    bar(x, y)
-    baz("hello")
+class Foo {
+    fn foo(x, y, z) {
+        1 * 2 + 3
+        if 1 {
+            print("foo")
+        }
+        else {
+            1 + 1
+            2 + 3
+        }
+        bar(x, y)
+        baz("hello")
+    }
+
+    fn bar() {
+        "baz"
+    }
 }
 "#;
 

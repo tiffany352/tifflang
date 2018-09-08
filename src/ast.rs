@@ -33,6 +33,11 @@ pub enum Expr {
         func: Box<Span<Expr>>,
         args: Vec<Span<Expr>>,
     },
+    If {
+        condition: Box<Span<Expr>>,
+        branch_then: Vec<Span<Expr>>,
+        branch_else: Vec<Span<Expr>>,
+    }
 }
 
 #[derive(Debug)]
@@ -47,5 +52,9 @@ pub enum Statement {
         name: Span<String>,
         args: Vec<Span<FunctionArgument>>,
         body: Vec<Span<Expr>>,
-    }
+    },
+    Class {
+        name: Span<String>,
+        members: Vec<Span<Statement>>,
+    },
 }
