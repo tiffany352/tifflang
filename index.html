@@ -13,7 +13,7 @@
         let response = await fetch("output.wasm");
         let bytes = await response.arrayBuffer();
         let instance = await instantiate(bytes, []);
-        let result = instance.exports.main();
+        let result = instance.exports.main(3, 4);
         console.log(result);
       }
 

@@ -1,27 +1,41 @@
 use wasm::builder::{FunctionBuilder, ModuleBuilder, CodeBuilder};
-use wasm::{ValueType, FuncType, Module as WasmModule, ExportEntry, ExportKind, FunctionIndex};
+use wasm::{ValueType, FuncType, Module as WasmModule, ExportEntry, ExportKind, FunctionIndex, LocalIndex};
 use ast::{Module, Expr, BinOp, Statement};
+use std::collections::HashMap;
 
-fn compile_expr(cb: CodeBuilder, expr: &Expr) -> CodeBuilder {
+fn compile_expr(bindings: &HashMap<String, LocalIndex>, cb: CodeBuilder, expr: &Expr) -> CodeBuilder {
     match *expr {
-        Expr::BinOp { op: BinOp::Add, ref lhs, ref rhs } => {
-            let cb = compile_expr(cb, lhs.get_value());
-            let cb = compile_expr(cb, rhs.get_value());
-            cb.i32_add()
+        Expr::BinOp { ref op, ref lhs, ref rhs } => {
+            let cb = compile_expr(bindings, cb, lhs.get_value());
+            let cb = compile_expr(bindings, cb, rhs.get_value());
+            match *op {
+                BinOp::Add => cb.i32_add(),
+                BinOp::Sub => cb.i32_sub(),
+                BinOp::Mul => cb.i32_mul(),
+                BinOp::Div => unimplemented!(),
+            }
+        },
+        Expr::Variable(ref name) => {
+            if let Some(index) = bindings.get(name) {
+                cb.get_local(*index)
+            }
+            else {
+                panic!("Undefined local")
+            }
         },
         Expr::ConstInteger(value) =>  {
             cb.constant(value as i32)
         },
         Expr::If { ref condition, ref branch_then, ref branch_else } => {
-            let cb = compile_expr(cb, condition.get_value());
+            let cb = compile_expr(bindings, cb, condition.get_value());
             let cb = cb.if_();
             let mut cb = cb;
             for expr in branch_then {
-                cb = compile_expr(cb, expr.get_value());
+                cb = compile_expr(bindings, cb, expr.get_value());
             }
             cb = cb.else_();
             for expr in branch_else {
-                cb = compile_expr(cb, expr.get_value());
+                cb = compile_expr(bindings, cb, expr.get_value());
             }
             cb.end()
         },
@@ -37,9 +51,17 @@ fn compile_statement(md: &mut ModuleBuilder, stmt: &Statement) {
                 params: args.iter().map(|_| ValueType::I32).collect(),
                 ret: Some(ValueType::I32),
             };
-            let f = FunctionBuilder::new(ty).code(|mut cb, _params| {
+            let f = FunctionBuilder::new(ty).code(|mut cb, params| {
+                let mut bindings = HashMap::new();
+                for (index, param) in params.iter().enumerate() {
+                    bindings.insert(
+                        args[index].get_value().name.get_value().to_owned(),
+                        *param
+                    );
+                }
+
                 for expr in body {
-                    cb = compile_expr(cb, expr.get_value());
+                    cb = compile_expr(&bindings, cb, expr.get_value());
                 }
                 cb.return_()
             }).build();
