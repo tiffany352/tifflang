@@ -1,4 +1,4 @@
-use ast::{Expr, ParseError, BinOp, Statement, FunctionArgument, Module};
+use ast::{Expr, ParseError, BinOp, Item, FunctionArgument, Module, Statement};
 use lexer::Token;
 use std::iter::Peekable;
 use span::Span;
@@ -175,6 +175,47 @@ pub fn parse_expr(iter: &mut TokenIterator) -> Span<Expr> {
     parse_add(iter)
 }
 
+fn parse_let(iter: &mut TokenIterator) -> Span<Statement> {
+    let start_span = match iter.next().unwrap().split() {
+        (span, Token::Let) => span,
+        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "let",
+        }))
+    };
+
+    let name = match iter.next().unwrap().split() {
+        (span, Token::Ident(name)) => span.replace(name),
+        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "ident",
+        }))
+    };
+
+    match iter.next().unwrap().split() {
+        (_span, Token::Equals) => (),
+        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "=",
+        }))
+    };
+
+    let expr = parse_expr(iter);
+
+    Span::bridge(start_span, expr.peek(), Statement::Let {
+        name: name,
+        value: expr,
+    })
+}
+
+fn parse_statement(iter: &mut TokenIterator) -> Span<Statement> {
+    match iter.peek().map(ToOwned::to_owned).unwrap().split() {
+        (_span, Token::Let) => parse_let(iter),
+        (_span, Token::Fn) | (_span, Token::Class) => parse_item(iter).map(Statement::Item),
+        _ => parse_expr(iter).map(Statement::Expr)
+    }
+}
+
 fn parse_func_arg(iter: &mut TokenIterator) -> Span<Result<FunctionArgument, ParseError>> {
     let name = match iter.next().unwrap().split() {
         (span, Token::Ident(ident)) => span.replace(ident),
@@ -189,10 +230,10 @@ fn parse_func_arg(iter: &mut TokenIterator) -> Span<Result<FunctionArgument, Par
     }))
 }
 
-fn parse_func(iter: &mut TokenIterator) -> Span<Statement> {
+fn parse_func(iter: &mut TokenIterator) -> Span<Item> {
     let start_span = match iter.next().unwrap().split() {
         (span, Token::Fn) => span,
-        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "fn",
         }))
@@ -200,7 +241,7 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Statement> {
 
     let name = match iter.next().unwrap().split() {
         (span, Token::Ident(ident)) => span.replace(ident),
-        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "ident",
         })),
@@ -208,7 +249,7 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Statement> {
 
     match iter.next().unwrap().split() {
         (_span, Token::ParenLeft) => (),
-        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "(",
         }))
@@ -222,13 +263,13 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Statement> {
         _ => loop {
             match parse_func_arg(iter).split() {
                 (span, Ok(arg)) => args.push(span.replace(arg)),
-                (span, Err(err)) => return span.replace(Statement::Error(err)),
+                (span, Err(err)) => return span.replace(Item::Error(err)),
             };
 
             match iter.next().unwrap().split() {
                 (_span, Token::Comma) => continue,
                 (_span, Token::ParenRight) => break,
-                (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+                (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
                     token: span.replace(token),
                     expected: ", or )",
                 })),
@@ -238,7 +279,7 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Statement> {
 
     match iter.next().unwrap().split() {
         (_span, Token::CurlyLeft) => (),
-        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "{",
         }))
@@ -257,20 +298,20 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Statement> {
             _ => (),
         }
 
-        body.push(parse_expr(iter));
+        body.push(parse_statement(iter));
     }
 
-    Span::bridge(start_span, end_span, Statement::Function {
+    Span::bridge(start_span, end_span, Item::Function {
         name: name,
         args: args,
         body: body,
     })
 }
 
-fn parse_class(iter: &mut TokenIterator) -> Span<Statement> {
+fn parse_class(iter: &mut TokenIterator) -> Span<Item> {
     let start_span = match iter.next().unwrap().split() {
         (span, Token::Class) => span,
-        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "class",
         }))
@@ -278,7 +319,7 @@ fn parse_class(iter: &mut TokenIterator) -> Span<Statement> {
 
     let name = match iter.next().unwrap().split() {
         (span, Token::Ident(ident)) => span.replace(ident),
-        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "ident",
         })),
@@ -286,7 +327,7 @@ fn parse_class(iter: &mut TokenIterator) -> Span<Statement> {
 
     match iter.next().unwrap().split() {
         (_span, Token::CurlyLeft) => (),
-        (span, token) => return span.replace(Statement::Error(ParseError::UnexpectedToken {
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
             expected: "{",
         }))
@@ -295,7 +336,7 @@ fn parse_class(iter: &mut TokenIterator) -> Span<Statement> {
     let mut members = vec![];
     let end_span;
     loop {
-        members.push(parse_statement(iter));
+        members.push(parse_item(iter));
 
         match iter.peek().map(ToOwned::to_owned).unwrap().split() {
             (span, Token::CurlyRight) => {
@@ -307,28 +348,28 @@ fn parse_class(iter: &mut TokenIterator) -> Span<Statement> {
         };
     }
 
-    Span::bridge(start_span, end_span, Statement::Class {
+    Span::bridge(start_span, end_span, Item::Class {
         name: name,
         members: members,
     })
 }
 
-pub fn parse_statement(iter: &mut TokenIterator) -> Span<Statement> {
+pub fn parse_item(iter: &mut TokenIterator) -> Span<Item> {
     match iter.peek().map(ToOwned::to_owned).unwrap().split() {
         (_span, Token::Fn) => parse_func(iter),
         (_span, Token::Class) => parse_class(iter),
         (span, token) => {
             iter.next();
-            span.replace(Statement::Error(ParseError::UnexpectedToken {
+            span.replace(Item::Error(ParseError::UnexpectedToken {
                 token: span.replace(token),
-                expected: "statement",
+                expected: "item",
             }))
         },
     }
 }
 
 pub fn parse_module(name: &str, iter: &mut TokenIterator) -> Module {
-    let mut statements = vec![];
+    let mut items = vec![];
 
     loop {
         match iter.peek().map(ToOwned::to_owned).unwrap().split() {
@@ -336,11 +377,11 @@ pub fn parse_module(name: &str, iter: &mut TokenIterator) -> Module {
             _ => (),
         }
 
-        statements.push(parse_statement(iter));
+        items.push(parse_item(iter));
     }
 
     Module {
         name: name.to_owned(),
-        statements: statements,
+        items: items,
     }
 }

@@ -16,7 +16,8 @@ use std::io::Write;
 
 const TEST: &'static str = r#"
 fn foo(x, y) {
-    x + y * 2
+    let z = x * x
+    z + y * 2
 }
 "#;/*
 class Foo {

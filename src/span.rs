@@ -46,6 +46,15 @@ impl<T> Span<T> {
         }
     }
 
+    pub fn map<U>(self, func: fn(T) -> U) -> Span<U> {
+        Span {
+            value: func(self.value),
+            first: self.first,
+            last: self.last,
+            buffer: self.buffer,
+        }
+    }
+
     pub fn get_value(&self) -> &T {
         &self.value
     }

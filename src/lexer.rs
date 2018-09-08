@@ -14,6 +14,7 @@ pub enum Token {
     Fn,
     If,
     Else,
+    Let,
     ParenLeft,
     ParenRight,
     CurlyLeft,
@@ -25,6 +26,7 @@ pub enum Token {
     Aster,
     Slash,
     Comma,
+    Equals,
     Eof,
 }
 
@@ -106,6 +108,12 @@ const REGEXES: &[Rule] = &[
             Token::Comma
         }
     },
+    Rule {
+        regex: r"^=",
+        process: |_captures| -> Token {
+            Token::Equals
+        }
+    },
 
     Rule {
         regex: r"^([a-zA-Z_][a-zA-Z0-9_]*)",
@@ -117,6 +125,7 @@ const REGEXES: &[Rule] = &[
                 "fn" => Token::Fn,
                 "if" => Token::If,
                 "else" => Token::Else,
+                "let" => Token::Let,
                 ident => Token::Ident(ident.to_owned()),
             }
         }

@@ -41,26 +41,37 @@ pub enum Expr {
 }
 
 #[derive(Debug)]
+pub enum Statement {
+    Error(ParseError),
+    Expr(Expr),
+    Let {
+        name: Span<String>,
+        value: Span<Expr>,
+    },
+    Item(Item),
+}
+
+#[derive(Debug)]
 pub struct FunctionArgument {
     pub name: Span<String>,
 }
 
 #[derive(Debug)]
-pub enum Statement {
+pub enum Item {
     Error(ParseError),
     Function {
         name: Span<String>,
         args: Vec<Span<FunctionArgument>>,
-        body: Vec<Span<Expr>>,
+        body: Vec<Span<Statement>>,
     },
     Class {
         name: Span<String>,
-        members: Vec<Span<Statement>>,
+        members: Vec<Span<Item>>,
     },
 }
 
 #[derive(Debug)]
 pub struct Module {
     pub name: String,
-    pub statements: Vec<Span<Statement>>,
+    pub items: Vec<Span<Item>>,
 }
