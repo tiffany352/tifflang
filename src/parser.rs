@@ -2,6 +2,7 @@ use ast::{Expr, ParseError, BinOp, Item, FunctionArgument, Module, Statement};
 use lexer::Token;
 use std::iter::Peekable;
 use span::Span;
+use typecheck::Typed;
 
 pub type TokenIterator = Peekable<Box<Iterator<Item=Span<Token>>>>;
 
@@ -36,8 +37,8 @@ fn parse_if(iter: &mut TokenIterator) -> Span<Expr> {
             iter.next();
         },
         _ => return Span::bridge(condition.peek(), branch_then_end, Expr::If {
-            condition: Box::new(condition),
-            branch_then: branch_then,
+            condition: Box::new(condition.map(Typed::new)),
+            branch_then: branch_then.into_iter().map(|span| span.map(Typed::new)).collect(),
             branch_else: vec![],
         }),
     }
@@ -66,9 +67,9 @@ fn parse_if(iter: &mut TokenIterator) -> Span<Expr> {
     }
 
     Span::bridge(condition.peek(), branch_else_end, Expr::If {
-        condition: Box::new(condition),
-        branch_then: branch_then,
-        branch_else: branch_else,
+        condition: Box::new(condition.map(Typed::new)),
+        branch_then: branch_then.into_iter().map(|span| span.map(Typed::new)).collect(),
+        branch_else: branch_else.into_iter().map(|span| span.map(Typed::new)).collect(),
     })
 }
 
@@ -112,8 +113,8 @@ fn parse_call(iter: &mut TokenIterator) -> Span<Expr> {
                 }
             }
             span.replace(Expr::Call {
-                func: Box::new(lhs),
-                args: args,
+                func: Box::new(lhs.map(Typed::new)),
+                args: args.into_iter().map(|span| span.map(Typed::new)).collect(),
             })
         },
         _ => lhs,
@@ -129,16 +130,16 @@ fn parse_mul(iter: &mut TokenIterator) -> Span<Expr> {
             iter.next();
             span.replace(Expr::BinOp {
                 op: BinOp::Mul,
-                lhs: Box::new(lhs),
-                rhs: Box::new(parse_mul(iter)),
+                lhs: Box::new(lhs.map(Typed::new)),
+                rhs: Box::new(parse_mul(iter).map(Typed::new)),
             })
         },
         Token::Slash => {
             iter.next();
             span.replace(Expr::BinOp {
                 op: BinOp::Div,
-                lhs: Box::new(lhs),
-                rhs: Box::new(parse_mul(iter)),
+                lhs: Box::new(lhs.map(Typed::new)),
+                rhs: Box::new(parse_mul(iter).map(Typed::new)),
             })
         }
         _ => lhs
@@ -155,16 +156,16 @@ fn parse_add(iter: &mut TokenIterator) -> Span<Expr> {
             iter.next();
             span.replace(Expr::BinOp {
                 op: BinOp::Add,
-                lhs: Box::new(lhs),
-                rhs: Box::new(parse_add(iter)),
+                lhs: Box::new(lhs.map(Typed::new)),
+                rhs: Box::new(parse_add(iter).map(Typed::new)),
             })
         },
         Token::Minus => {
             iter.next();
             span.replace(Expr::BinOp {
                 op: BinOp::Sub,
-                lhs: Box::new(lhs),
-                rhs: Box::new(parse_add(iter)),
+                lhs: Box::new(lhs.map(Typed::new)),
+                rhs: Box::new(parse_add(iter).map(Typed::new)),
             })
         }
         _ => lhs
@@ -204,7 +205,7 @@ fn parse_let(iter: &mut TokenIterator) -> Span<Statement> {
 
     Span::bridge(start_span, expr.peek(), Statement::Let {
         name: name,
-        value: expr,
+        value: expr.map(Typed::new),
     })
 }
 
@@ -212,7 +213,7 @@ fn parse_statement(iter: &mut TokenIterator) -> Span<Statement> {
     match iter.peek().map(ToOwned::to_owned).unwrap().split() {
         (_span, Token::Let) => parse_let(iter),
         (_span, Token::Fn) | (_span, Token::Class) => parse_item(iter).map(Statement::Item),
-        _ => parse_expr(iter).map(Statement::Expr)
+        _ => parse_expr(iter).map(Typed::new).map(Statement::Expr)
     }
 }
 

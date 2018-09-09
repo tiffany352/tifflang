@@ -5,6 +5,7 @@ mod span;
 mod lexer;
 mod ast;
 mod parser;
+mod typecheck;
 mod compiler;
 
 use lexer::Token;
@@ -48,9 +49,11 @@ fn main() {
         println!("{}", span);
     }*/
     let iter: Box<Iterator<Item=Span<Token>>> = Box::new(tokens.into_iter());
-    let expr = parser::parse_module("stdin", &mut iter.peekable());
-    let module = compiler::compile_module(&expr);
+    let module = parser::parse_module("stdin", &mut iter.peekable());
+    let module = typecheck::typecheck_module(module);
     println!("{:#?}", module);
+    let module = compiler::compile_module(&module);
+    //println!("{:#?}", module);
 
     let mut file = File::create("output.wasm").unwrap();
     let mut code = vec![];

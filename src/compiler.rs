@@ -6,8 +6,8 @@ use std::collections::HashMap;
 fn compile_expr(bindings: &HashMap<String, LocalIndex>, cb: CodeBuilder, expr: &Expr) -> CodeBuilder {
     match *expr {
         Expr::BinOp { ref op, ref lhs, ref rhs } => {
-            let cb = compile_expr(bindings, cb, lhs.get_value());
-            let cb = compile_expr(bindings, cb, rhs.get_value());
+            let cb = compile_expr(bindings, cb, lhs.get_value().get_value());
+            let cb = compile_expr(bindings, cb, rhs.get_value().get_value());
             match *op {
                 BinOp::Add => cb.i32_add(),
                 BinOp::Sub => cb.i32_sub(),
@@ -27,15 +27,15 @@ fn compile_expr(bindings: &HashMap<String, LocalIndex>, cb: CodeBuilder, expr: &
             cb.constant(value as i32)
         },
         Expr::If { ref condition, ref branch_then, ref branch_else } => {
-            let cb = compile_expr(bindings, cb, condition.get_value());
+            let cb = compile_expr(bindings, cb, condition.get_value().get_value());
             let cb = cb.if_();
             let mut cb = cb;
             for expr in branch_then {
-                cb = compile_expr(bindings, cb, expr.get_value());
+                cb = compile_expr(bindings, cb, expr.get_value().get_value());
             }
             cb = cb.else_();
             for expr in branch_else {
-                cb = compile_expr(bindings, cb, expr.get_value());
+                cb = compile_expr(bindings, cb, expr.get_value().get_value());
             }
             cb.end()
         },
@@ -46,10 +46,10 @@ fn compile_expr(bindings: &HashMap<String, LocalIndex>, cb: CodeBuilder, expr: &
 
 fn compile_statement(bindings: &HashMap<String, LocalIndex>, cb: CodeBuilder, stmt: &Statement) -> CodeBuilder {
     match *stmt {
-        Statement::Expr(ref expr) => compile_expr(&*bindings, cb, expr),
+        Statement::Expr(ref expr) => compile_expr(&*bindings, cb, expr.get_value()),
         Statement::Let { ref name, ref value } => {
             let index = bindings.get(name.get_value()).unwrap();
-            let cb = compile_expr(&*bindings, cb, value.get_value());
+            let cb = compile_expr(&*bindings, cb, value.get_value().get_value());
             cb.set_local(*index)
         },
         Statement::Item(_) => unimplemented!(),

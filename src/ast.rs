@@ -1,5 +1,6 @@
 use span::Span;
 use lexer::Token;
+use typecheck::Typed;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -9,7 +10,7 @@ pub enum ParseError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BinOp {
     Add,
     Sub,
@@ -26,27 +27,27 @@ pub enum Expr {
     Variable(String),
     BinOp {
         op: BinOp,
-        lhs: Box<Span<Expr>>,
-        rhs: Box<Span<Expr>>,
+        lhs: Box<Span<Typed<Expr>>>,
+        rhs: Box<Span<Typed<Expr>>>,
     },
     Call {
-        func: Box<Span<Expr>>,
-        args: Vec<Span<Expr>>,
+        func: Box<Span<Typed<Expr>>>,
+        args: Vec<Span<Typed<Expr>>>,
     },
     If {
-        condition: Box<Span<Expr>>,
-        branch_then: Vec<Span<Expr>>,
-        branch_else: Vec<Span<Expr>>,
+        condition: Box<Span<Typed<Expr>>>,
+        branch_then: Vec<Span<Typed<Expr>>>,
+        branch_else: Vec<Span<Typed<Expr>>>,
     }
 }
 
 #[derive(Debug)]
 pub enum Statement {
     Error(ParseError),
-    Expr(Expr),
+    Expr(Typed<Expr>),
     Let {
         name: Span<String>,
-        value: Span<Expr>,
+        value: Span<Typed<Expr>>,
     },
     Item(Item),
 }
