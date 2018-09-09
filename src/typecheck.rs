@@ -187,8 +187,10 @@ pub fn typecheck_item(item: Item) -> Item {
         Item::Function { name, args, body } => {
             let mut bindings: Bindings = HashMap::new();
             for arg in &args {
-                // todo
-                bindings.insert(arg.get_value().name.get_value().clone(), Type::Void);
+                bindings.insert(
+                    arg.get_value().name.get_value().clone(),
+                    arg.get_value().type_desc.get_value().clone()
+                );
             }
             let mut result_body = vec![];
 

@@ -16,7 +16,7 @@ use wasm::Dump;
 use std::io::Write;
 
 const TEST: &'static str = r#"
-fn foo(x, y) {
+fn foo(x: int, y: int) {
     let z = x * x
     z + y * 2
 }

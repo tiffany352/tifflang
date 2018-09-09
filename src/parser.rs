@@ -2,7 +2,7 @@ use ast::{Expr, ParseError, BinOp, Item, FunctionArgument, Module, Statement};
 use lexer::Token;
 use std::iter::Peekable;
 use span::Span;
-use typecheck::Typed;
+use typecheck::{Typed, Type};
 
 pub type TokenIterator = Peekable<Box<Iterator<Item=Span<Token>>>>;
 
@@ -217,6 +217,25 @@ fn parse_statement(iter: &mut TokenIterator) -> Span<Statement> {
     }
 }
 
+fn parse_type(iter: &mut TokenIterator) -> Span<Result<Type, ParseError>> {
+    match iter.next().unwrap().split() {
+        (span, Token::Ident(ident)) => match &ident[..] {
+            "int" => span.replace(Ok(Type::Integer)),
+            "real" => span.replace(Ok(Type::Real)),
+            "string" => span.replace(Ok(Type::String)),
+            "bool" => span.replace(Ok(Type::Boolean)),
+            _ => span.replace(Err(ParseError::UnexpectedToken {
+                token: span.replace(Token::Ident(ident)),
+                expected: "type",
+            })),
+        },
+        (span, token) => span.replace(Err(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "type",
+        })),
+    }
+}
+
 fn parse_func_arg(iter: &mut TokenIterator) -> Span<Result<FunctionArgument, ParseError>> {
     let name = match iter.next().unwrap().split() {
         (span, Token::Ident(ident)) => span.replace(ident),
@@ -226,8 +245,22 @@ fn parse_func_arg(iter: &mut TokenIterator) -> Span<Result<FunctionArgument, Par
         })),
     };
 
+    match iter.next().unwrap().split() {
+        (_span, Token::Colon) => (),
+        (span, token) => return span.replace(Err(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: ":",
+        })),
+    };
+
+    let type_info = match parse_type(iter).split() {
+        (span, Ok(type_info)) => span.replace(type_info),
+        (span, Err(err)) => return span.replace(Err(err)),
+    };
+
     name.clone().replace(Ok(FunctionArgument {
         name: name,
+        type_desc: type_info,
     }))
 }
 

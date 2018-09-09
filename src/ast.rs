@@ -1,6 +1,6 @@
 use span::Span;
 use lexer::Token;
-use typecheck::Typed;
+use typecheck::{Typed, Type};
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -55,6 +55,7 @@ pub enum Statement {
 #[derive(Debug)]
 pub struct FunctionArgument {
     pub name: Span<String>,
+    pub type_desc: Span<Type>,
 }
 
 #[derive(Debug)]
