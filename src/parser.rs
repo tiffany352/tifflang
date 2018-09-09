@@ -312,6 +312,19 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Item> {
     }
 
     match iter.next().unwrap().split() {
+        (_span, Token::Arrow) => (),
+        (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
+            token: span.replace(token),
+            expected: "->",
+        }))
+    };
+
+    let type_info = match parse_type(iter).split() {
+        (span, Ok(type_info)) => span.replace(type_info),
+        (span, Err(err)) => return span.replace(Item::Error(err)),
+    };
+
+    match iter.next().unwrap().split() {
         (_span, Token::CurlyLeft) => (),
         (span, token) => return span.replace(Item::Error(ParseError::UnexpectedToken {
             token: span.replace(token),
@@ -339,6 +352,7 @@ fn parse_func(iter: &mut TokenIterator) -> Span<Item> {
         name: name,
         args: args,
         body: body,
+        result: type_info,
     })
 }
 

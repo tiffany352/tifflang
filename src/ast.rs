@@ -65,6 +65,7 @@ pub enum Item {
         name: Span<String>,
         args: Vec<Span<FunctionArgument>>,
         body: Vec<Span<Statement>>,
+        result: Span<Type>,
     },
     Class {
         name: Span<String>,

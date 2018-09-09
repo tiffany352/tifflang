@@ -25,6 +25,10 @@ pub enum TypeError {
         branch_then: Box<Type>,
         branch_else: Box<Type>,
     },
+    /*FunctionResultMismatch {
+        expected: Box<Type>,
+        given: Box<Type>,
+    },*/
     UndefinedVariable {
         name: String,
     },
@@ -184,7 +188,7 @@ type Bindings = HashMap<String, Type>;
 
 pub fn typecheck_item(item: Item) -> Item {
     match item {
-        Item::Function { name, args, body } => {
+        Item::Function { name, args, body, result } => {
             let mut bindings: Bindings = HashMap::new();
             for arg in &args {
                 bindings.insert(
@@ -208,8 +212,18 @@ pub fn typecheck_item(item: Item) -> Item {
                 result_body.push(statement);
             }
 
+            let result_ty = result_body.last().map(|span| match span.get_value() {
+                Statement::Expr(expr) => expr.type_info.clone().unwrap(),
+                _ => Type::Void,
+            }).unwrap_or(Type::Void);
+
+            if &result_ty != result.get_value() {
+                // todo: pass an error somehow
+            }
+
             Item::Function {
                 name, args,
+                result,
                 body: result_body,
             }
         },
