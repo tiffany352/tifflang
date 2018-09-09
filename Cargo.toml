@@ -1,7 +1,8 @@
 [package]
 name = "tifflang"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Tiffany Bennett <tiffany@stormbit.net>"]
+license = "MPL-2.0"
 
 [dependencies]
 web-assembler = "0.1.0"
