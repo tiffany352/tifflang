@@ -46,7 +46,7 @@ impl<T> Span<T> {
         }
     }
 
-    pub fn map<U>(self, func: fn(T) -> U) -> Span<U> {
+    pub fn map<F: Fn(T) -> U, U>(self, func: F) -> Span<U> {
         Span {
             value: func(self.value),
             first: self.first,

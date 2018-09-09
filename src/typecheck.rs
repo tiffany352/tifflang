@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use span::Span;
 use ast::{Expr, BinOp, Statement, Item, Module};
 
@@ -23,6 +24,9 @@ pub enum TypeError {
     IfBranchMismatch {
         branch_then: Box<Type>,
         branch_else: Box<Type>,
+    },
+    UndefinedVariable {
+        name: String,
     },
 }
 
@@ -68,17 +72,27 @@ impl<T> Typed<T> {
 
 }
 
-pub fn typecheck_expr(expr: Typed<Expr>) -> Typed<Expr> {
+fn typecheck_expr(bindings: &Bindings, expr: Typed<Expr>) -> Typed<Expr> {
     match expr.value {
         expr @ Expr::Error(_) => Typed::with_type(expr, Type::Error(TypeError::ParseError)),
         expr @ Expr::ConstInteger(_) => Typed::with_type(expr, Type::Integer),
         expr @ Expr::ConstNumber(_) => Typed::with_type(expr, Type::Real),
         expr @ Expr::ConstString(_) => Typed::with_type(expr, Type::String),
-        expr @ Expr::Variable(_) => Typed::with_type(expr, Type::Error(TypeError::ParseError)),
+        Expr::Variable(name) => {
+            if let Some(type_info) = bindings.get(&name) {
+                Typed::with_type(Expr::Variable(name), type_info.clone())
+            }
+            else {
+                let type_info = Type::Error(TypeError::UndefinedVariable {
+                    name: name.clone(),
+                });
+                Typed::with_type(Expr::Variable(name), type_info)
+            }
+        },
 
         Expr::BinOp { op, lhs, rhs } => {
-            let lhs = lhs.map(typecheck_expr);
-            let rhs = rhs.map(typecheck_expr);
+            let lhs = lhs.map(|expr| typecheck_expr(bindings, expr));
+            let rhs = rhs.map(|expr| typecheck_expr(bindings, expr));
             let left_ty = lhs.get_value().type_info.clone().unwrap();
             let right_ty = rhs.get_value().type_info.clone().unwrap();
             let type_info = match (&left_ty, &right_ty) {
@@ -98,8 +112,8 @@ pub fn typecheck_expr(expr: Typed<Expr>) -> Typed<Expr> {
         },
 
         Expr::Call { func, args } => {
-            let func = func.map(typecheck_expr);
-            let args: Vec<Span<Typed<Expr>>> = args.into_iter().map(|span| span.map(typecheck_expr)).collect();
+            let func = func.map(|expr| typecheck_expr(bindings, expr));
+            let args: Vec<Span<Typed<Expr>>> = args.into_iter().map(|span| span.map(|expr| typecheck_expr(bindings, expr))).collect();
 
             let func_ty = func.get_value().type_info.clone().unwrap();
             let args_ty = args.iter().map(|span| span.get_value().type_info.clone().unwrap()).collect();
@@ -127,9 +141,9 @@ pub fn typecheck_expr(expr: Typed<Expr>) -> Typed<Expr> {
         },
 
         Expr::If { condition, branch_then, branch_else } => {
-            let condition = condition.map(typecheck_expr);
-            let branch_then: Vec<Span<Typed<Expr>>> = branch_then.into_iter().map(|span| span.map(typecheck_expr)).collect();
-            let branch_else: Vec<Span<Typed<Expr>>> = branch_else.into_iter().map(|span| span.map(typecheck_expr)).collect();
+            let condition = condition.map(|expr| typecheck_expr(bindings, expr));
+            let branch_then: Vec<Span<Typed<Expr>>> = branch_then.into_iter().map(|span| span.map(|expr| typecheck_expr(bindings, expr))).collect();
+            let branch_else: Vec<Span<Typed<Expr>>> = branch_else.into_iter().map(|span| span.map(|expr| typecheck_expr(bindings, expr))).collect();
 
             let condition_ty = condition.get_value().type_info.clone().unwrap();
             let then_ty = branch_then.last().map(|span| span.get_value().type_info.clone().unwrap()).unwrap_or(Type::Void);
@@ -155,22 +169,47 @@ pub fn typecheck_expr(expr: Typed<Expr>) -> Typed<Expr> {
     }
 }
 
-pub fn typecheck_statement(stmt: Statement) -> Statement {
+fn typecheck_statement(bindings: &Bindings, stmt: Statement) -> Statement {
     match stmt {
-        Statement::Expr(expr) => Statement::Expr(typecheck_expr(expr)),
+        Statement::Expr(expr) => Statement::Expr(typecheck_expr(bindings, expr)),
         Statement::Let { name, value } => Statement::Let {
             name,
-            value: value.map(typecheck_expr),
+            value: value.map(|expr| typecheck_expr(bindings, expr)),
         },
         stmt => stmt,
     }
 }
 
+type Bindings = HashMap<String, Type>;
+
 pub fn typecheck_item(item: Item) -> Item {
     match item {
-        Item::Function { name, args, body } => Item::Function {
-            name, args,
-            body: body.into_iter().map(|span| span.map(typecheck_statement)).collect(),
+        Item::Function { name, args, body } => {
+            let mut bindings: Bindings = HashMap::new();
+            for arg in &args {
+                // todo
+                bindings.insert(arg.get_value().name.get_value().clone(), Type::Void);
+            }
+            let mut result_body = vec![];
+
+            for statement in body {
+                let statement = statement.map(|stmt| typecheck_statement(&bindings, stmt));
+                match statement.get_value() {
+                    Statement::Let { ref name, ref value } => {
+                        bindings.insert(
+                            name.get_value().clone(),
+                            value.get_value().type_info.clone().unwrap()
+                        );
+                    }
+                    _ => (),
+                }
+                result_body.push(statement);
+            }
+
+            Item::Function {
+                name, args,
+                body: result_body,
+            }
         },
         Item::Class { name, members } => Item::Class {
             name,
