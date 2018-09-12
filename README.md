@@ -16,7 +16,7 @@ statements like `if` are expressions, like Rust.
 Example:
 ```rust
 class SomeClass {
-    fn foo(x) {
+    fn foo(x: int) -> int {
         let y = 4
         let z = x * 3
         if 1 {
